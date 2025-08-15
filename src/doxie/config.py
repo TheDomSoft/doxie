@@ -6,7 +6,7 @@ variables. Environment variables take precedence over YAML values.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional, Literal
+from typing import Any, Dict, Optional, Literal, List
 
 import yaml
 from pydantic import BaseModel
@@ -58,6 +58,7 @@ class ConfluenceConfig(BaseModel):
     username: Optional[str] = None
     token: Optional[str] = None  # API token/password
     space: Optional[str] = None
+    spaces: Optional[str] = None  # Comma-separated space keys from env, e.g. "DOCS, ENG"
     cloud: bool = True
     verify_ssl: bool = True
 
@@ -108,9 +109,10 @@ def load_settings(config_path: Optional[Path | str] = None) -> Settings:
     If ``config_path`` is given, it is used as the YAML source path.
     Environment variables still take precedence.
     """
+    from os import environ
+
     if config_path is not None:
         # Temporarily override discovery for a single call
-        from os import environ
-
         environ["DOXIE_CONFIG_PATH"] = str(config_path)
+
     return Settings()  # type: ignore[call-arg]

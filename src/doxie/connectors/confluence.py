@@ -6,7 +6,7 @@ of pagination, mapping to ParsedDocument, and persistence will be added later.
 """
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from atlassian import Confluence
 
@@ -123,3 +123,136 @@ class ConfluenceConnector(BaseConnector):
         """
         _ = await self.fetch_content()
         # TODO: persist to DB and update search index
+
+    async def list_spaces(self, limit: Optional[int] = None) -> List[dict]:
+        """List accessible Confluence spaces (key and name).
+
+        Returns a list of dicts: {"key": str, "name": str}
+        """
+        try:
+            spaces = self._client.get_all_spaces(start=0, limit=limit or 50)
+        except Exception:
+            spaces = []
+
+        results: List[dict] = []
+        # The API may return a dict with 'results' or a list of dicts
+        items = []
+        if isinstance(spaces, dict):
+            items = spaces.get("results", [])  # type: ignore[assignment]
+        elif isinstance(spaces, list):
+            items = spaces
+
+        for s in items or []:
+            if not isinstance(s, dict):
+                continue
+            key = s.get("key") or (s.get("spaceKey") if isinstance(s.get("spaceKey"), str) else None)
+            name = s.get("name")
+            if key and isinstance(key, str):
+                results.append({"key": key, "name": name or ""})
+
+        return results
+
+    async def fetch_content_for_spaces(self, spaces: List[str], limit_per_space: Optional[int] = None) -> List[ParsedDocument]:
+        """Fetch content across multiple spaces and return a combined list of docs."""
+        all_docs: List[ParsedDocument] = []
+        for space in spaces:
+            docs = await self.fetch_content(space=space, limit=limit_per_space)
+            all_docs.extend(docs)
+        return all_docs
+
+    async def create_page(
+        self,
+        *,
+        space: str,
+        title: str,
+        content: str,
+        parent_id: Optional[str] = None,
+        representation: str = "storage",
+    ) -> Dict[str, Any]:
+        """Create a Confluence page in a space.
+
+        Parameters
+        ----------
+        space: str
+            Space key (e.g., "DOCS").
+        title: str
+            Page title.
+        content: str
+            Page body in the specified representation.
+        parent_id: str | None
+            Optional parent page ID to create a child page under.
+        representation: str
+            Content representation (default: "storage").
+        """
+        try:
+            page = self._client.create_page(
+                space=space,
+                title=title,
+                body=content,
+                parent_id=(parent_id or None),
+                type="page",
+                representation=representation,
+            )
+        except Exception as e:  # pragma: no cover - bubble up to caller
+            raise e
+        return page or {}
+
+    async def get_page_by_id(self, page_id: str, expand: str = "body.storage") -> Dict[str, Any]:
+        """Fetch a page by ID with optional expand."""
+        try:
+            page = self._client.get_page_by_id(page_id, expand=expand)
+        except Exception as e:
+            raise e
+        return page or {}
+
+    async def get_page_id(self, space: str, title: str) -> Optional[str]:
+        """Return page ID by space and title, if found."""
+        try:
+            pid = self._client.get_page_id(space, title)
+        except Exception:
+            pid = None
+        if pid is None:
+            return None
+        return str(pid)
+
+    async def update_page(
+        self,
+        *,
+        page_id: str,
+        title: Optional[str] = None,
+        content: Optional[str] = None,
+        parent_id: Optional[str] = None,
+        representation: str = "storage",
+        minor_edit: bool = False,
+        version_comment: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update an existing Confluence page.
+
+        If title is not provided, the current title will be fetched and reused (client requires title).
+        If content is None, the existing body will be preserved.
+        """
+        # Ensure we have a title
+        current_title = None
+        current_body = None
+        if title is None or content is None:
+            page = await self.get_page_by_id(page_id, expand="body.storage")
+            if isinstance(page, dict):
+                current_title = page.get("title")
+                current_body = page.get("body", {}).get("storage", {}).get("value", "")
+        final_title = title or (current_title or "")
+        final_body = content if content is not None else (current_body or "")
+
+        try:
+            updated = self._client.update_page(
+                page_id=page_id,
+                title=final_title,
+                body=final_body,
+                parent_id=(parent_id or None),
+                type="page",
+                representation=representation,
+                minor_edit=minor_edit,
+                version_comment=(version_comment or None),
+            )
+        except Exception as e:  # pragma: no cover
+            raise e
+        return updated or {}
