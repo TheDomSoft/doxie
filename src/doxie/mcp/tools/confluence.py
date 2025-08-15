@@ -3,12 +3,12 @@
 These tools use the sources abstraction so the agent is decoupled from
 connector details.
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional
 
 import markdown as md
-
 from fastmcp import FastMCP
 
 from doxie.parsers.base_parser import ParsedDocument
@@ -81,7 +81,9 @@ def register_confluence_tools(mcp: FastMCP, get_state: Callable[[], Any]) -> Non
         return [_serialize_parsed_document(d) for d in docs]
 
     @mcp.tool
-    async def confluence_fetch_space(space: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    async def confluence_fetch_space(
+        space: str, limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         """Fetch Confluence pages from a specific space (no persistence).
 
         Parameters
@@ -154,7 +156,9 @@ def register_confluence_tools(mcp: FastMCP, get_state: Callable[[], Any]) -> Non
             raise PermissionError(
                 f"Spaces not allowed: {', '.join(disallowed)}. Allowed: {', '.join(allowed)}"
             )
-        docs = await state.confluence_source.fetch_for_spaces(chosen_spaces, limit_per_space=limit_per_space)
+        docs = await state.confluence_source.fetch_for_spaces(
+            chosen_spaces, limit_per_space=limit_per_space
+        )
         return [_serialize_parsed_document(d) for d in docs]
 
     @mcp.tool
@@ -338,11 +342,15 @@ def register_confluence_tools(mcp: FastMCP, get_state: Callable[[], Any]) -> Non
             _ensure_space_allowed(chosen_space, allowed)
             resolved_page_id = await state.confluence_source.get_page_id(chosen_space, match_title)
             if not resolved_page_id:
-                raise ValueError(f"Page not found in space '{chosen_space}' with title '{match_title}'.")
+                raise ValueError(
+                    f"Page not found in space '{chosen_space}' with title '{match_title}'."
+                )
         else:
             # We have page_id; fetch page to determine its space and enforce
             try:
-                page_info = await state.confluence_source.get_page_by_id(resolved_page_id, expand="space")
+                page_info = await state.confluence_source.get_page_by_id(
+                    resolved_page_id, expand="space"
+                )
                 page_space = None
                 if isinstance(page_info, dict):
                     sp = page_info.get("space")
@@ -364,7 +372,9 @@ def register_confluence_tools(mcp: FastMCP, get_state: Callable[[], Any]) -> Non
             elif fmt in ("html", "storage"):
                 body = content or ""
             else:
-                raise ValueError("Unsupported content_format. Use 'markdown', 'html', or 'storage'.")
+                raise ValueError(
+                    "Unsupported content_format. Use 'markdown', 'html', or 'storage'."
+                )
 
         updated = await state.confluence_source.update_page(
             page_id=resolved_page_id,

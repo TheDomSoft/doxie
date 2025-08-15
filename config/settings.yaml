@@ -10,7 +10,7 @@ logging:
 
 # Database uses model default unless overridden by env vars
 
-# Confluence uses model defaults unless overridden by env vars  
+# Confluence uses model defaults unless overridden by env vars
 confluence:
   cloud: true
   verify_ssl: true

@@ -1,4 +1,5 @@
 """Confluence content source wrapping the ConfluenceConnector."""
+
 from __future__ import annotations
 
 from typing import List, Optional
@@ -35,9 +36,13 @@ class ConfluenceSource(ContentSource):
         """List accessible Confluence spaces (key and name)."""
         return await self._connector.list_spaces(limit=limit)
 
-    async def fetch_for_spaces(self, spaces: List[str], limit_per_space: Optional[int] = None) -> List[ParsedDocument]:
+    async def fetch_for_spaces(
+        self, spaces: List[str], limit_per_space: Optional[int] = None
+    ) -> List[ParsedDocument]:
         """Fetch documents across multiple spaces without persistence."""
-        return await self._connector.fetch_content_for_spaces(spaces, limit_per_space=limit_per_space)
+        return await self._connector.fetch_content_for_spaces(
+            spaces, limit_per_space=limit_per_space
+        )
 
     async def create_page(
         self,

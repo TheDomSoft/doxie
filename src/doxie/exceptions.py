@@ -3,6 +3,7 @@
 These exceptions allow callers to discriminate error categories
 and handle them appropriately while preserving the original context.
 """
+
 from __future__ import annotations
 
 

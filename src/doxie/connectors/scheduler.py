@@ -3,6 +3,7 @@
 Provides helpers to schedule and manage periodic sync jobs for connectors.
 This is a minimal skeleton; full error handling and persistence will be added later.
 """
+
 from __future__ import annotations
 
 from datetime import timedelta

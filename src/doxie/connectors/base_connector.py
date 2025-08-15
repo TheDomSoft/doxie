@@ -3,6 +3,7 @@
 All connectors should implement asynchronous methods to fetch content and
 optionally perform synchronization workflows.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

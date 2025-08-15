@@ -6,6 +6,7 @@ metadata from supported document types (PDF, DOCX, Markdown, etc.).
 Concrete implementations should subclass `BaseParser` and implement
 `can_parse()` and `parse()`.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

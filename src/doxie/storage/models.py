@@ -2,6 +2,7 @@
 
 Defines core entities: Document, Section, and Metadata.
 """
+
 from __future__ import annotations
 
 from datetime import datetime

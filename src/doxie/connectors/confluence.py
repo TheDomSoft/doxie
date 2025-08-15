@@ -4,9 +4,10 @@ Provides asynchronous interface compatible with the BaseConnector while
 internally relying on the synchronous Confluence client. Full implementation
 of pagination, mapping to ParsedDocument, and persistence will be added later.
 """
+
 from __future__ import annotations
 
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 from atlassian import Confluence
 
@@ -57,7 +58,9 @@ class ConfluenceConnector(BaseConnector):
         self._space = space
         self._parser = html_parser or HTMLParser()
 
-    async def fetch_content(self, space: Optional[str] = None, limit: Optional[int] = None) -> List[ParsedDocument]:
+    async def fetch_content(
+        self, space: Optional[str] = None, limit: Optional[int] = None
+    ) -> List[ParsedDocument]:
         """Fetch pages from Confluence and parse to ParsedDocument list.
 
         Parameters
@@ -145,14 +148,18 @@ class ConfluenceConnector(BaseConnector):
         for s in items or []:
             if not isinstance(s, dict):
                 continue
-            key = s.get("key") or (s.get("spaceKey") if isinstance(s.get("spaceKey"), str) else None)
+            key = s.get("key") or (
+                s.get("spaceKey") if isinstance(s.get("spaceKey"), str) else None
+            )
             name = s.get("name")
             if key and isinstance(key, str):
                 results.append({"key": key, "name": name or ""})
 
         return results
 
-    async def fetch_content_for_spaces(self, spaces: List[str], limit_per_space: Optional[int] = None) -> List[ParsedDocument]:
+    async def fetch_content_for_spaces(
+        self, spaces: List[str], limit_per_space: Optional[int] = None
+    ) -> List[ParsedDocument]:
         """Fetch content across multiple spaces and return a combined list of docs."""
         all_docs: List[ParsedDocument] = []
         for space in spaces:

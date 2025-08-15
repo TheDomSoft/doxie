@@ -3,6 +3,7 @@
 Provides engine/session factories and a convenient session scope context manager.
 PostgreSQL-only (via psycopg driver).
 """
+
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -33,9 +34,7 @@ def get_engine(url: str, *, echo: bool = False) -> Engine:
     if url.startswith("postgresql://"):
         url = "postgresql+psycopg://" + url[len("postgresql://") :]
     elif not url.startswith("postgresql+psycopg://"):
-        raise ValueError(
-            "Unsupported database URL. Expected 'postgresql+psycopg://'."
-        )
+        raise ValueError("Unsupported database URL. Expected 'postgresql+psycopg://'.")
 
     # Enable pre-ping to gracefully handle stale/disconnected connections
     return create_engine(url, echo=echo, pool_pre_ping=True)

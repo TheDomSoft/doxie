@@ -5,6 +5,7 @@ This skeleton provides a basic interface and a minimal implementation for
 string-based HTML parsing. File-based parsing is supported for `.html` files
 via the base `parse()` method.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -26,7 +27,9 @@ class HTMLParser(BaseParser):
         html = path.read_text(encoding="utf-8")
         return self.parse_html_content(html, metadata={"source_path": str(path)})
 
-    def parse_html_content(self, html: str, *, metadata: Optional[Dict[str, Any]] = None) -> ParsedDocument:
+    def parse_html_content(
+        self, html: str, *, metadata: Optional[Dict[str, Any]] = None
+    ) -> ParsedDocument:
         """Parse HTML string content into a `ParsedDocument`.
 
         This basic implementation extracts visible text and identifies headings

@@ -3,6 +3,7 @@
 Defines the minimal surface for search backends (e.g., Whoosh), enabling
 extensibility and testability via a common contract.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

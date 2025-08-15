@@ -5,6 +5,7 @@ Run with:
   - poetry run doxie-mcp
   - or: python -m doxie.mcp.server (ensure PYTHONPATH includes ./src)
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -50,15 +51,15 @@ mcp = FastMCP("Doxie MCP Server")
 
 # ----- Tools -----
 
+
 @mcp.tool
 def health() -> str:
     """Simple health check tool."""
     return "ok"
 
 
-
-
 # ----- Entrypoint -----
+
 
 def main() -> None:
     """Initialize state and run the MCP server."""

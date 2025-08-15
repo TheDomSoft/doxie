@@ -1,33 +1,9 @@
-"""Configuration loading utilities using pydantic-settings.
-
-This module exposes the Settings class and a loader that merges YAML and environment
-variables. Environment variables take precedence over YAML values.
-"""
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Dict, Optional, Literal, List
+from typing import Literal, Optional
 
-import yaml
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-
-def _read_yaml(path: Path) -> Dict[str, Any]:
-    """Read a YAML file and return a dict. Missing file returns empty dict.
-
-    Parameters
-    ----------
-    path: Path
-        Path to the YAML file.
-    """
-    if not path.exists():
-        return {}
-    with path.open("r", encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
-    if not isinstance(data, dict):
-        return {}
-    return data
 
 
 class AppConfig(BaseModel):
@@ -64,10 +40,7 @@ class ConfluenceConfig(BaseModel):
 
 
 class Settings(BaseSettings):
-    """Top-level settings loaded from YAML, env and .env.
-
-    Uses a custom YAML source with lower priority than environment variables.
-    """
+    """Top-level settings loaded from environment variables and .env only."""
 
     model_config = SettingsConfigDict(
         env_prefix="DOXIE_",
@@ -80,39 +53,7 @@ class Settings(BaseSettings):
     database: DatabaseConfig = DatabaseConfig()
     confluence: ConfluenceConfig = ConfluenceConfig()
 
-    @classmethod
-    def settings_customise_sources(
-        cls,
-        settings_cls,  # type: ignore[unused-argument]
-        init_settings,
-        env_settings,
-        dotenv_settings,
-        file_secret_settings,
-    ):
-        """Insert YAML settings as a low-priority source (after init, before env)."""
 
-        # Use the built-in YamlConfigSettingsSource for v2 API
-        from pydantic_settings import YamlConfigSettingsSource  # type: ignore
-
-        config_path = Path(
-            __import__("os").environ.get("DOXIE_CONFIG_PATH", "config/settings.yaml")
-        )
-        yaml_source = YamlConfigSettingsSource(settings_cls, yaml_file=config_path)
-
-        # Ensure env and .env override YAML (YAML lowest precedence)
-        return (init_settings, env_settings, dotenv_settings, yaml_source, file_secret_settings)
-
-
-def load_settings(config_path: Optional[Path | str] = None) -> Settings:
-    """Load settings, optionally from a specific YAML path.
-
-    If ``config_path`` is given, it is used as the YAML source path.
-    Environment variables still take precedence.
-    """
-    from os import environ
-
-    if config_path is not None:
-        # Temporarily override discovery for a single call
-        environ["DOXIE_CONFIG_PATH"] = str(config_path)
-
+def load_settings() -> Settings:
+    """Load settings from environment variables and .env only."""
     return Settings()  # type: ignore[call-arg]

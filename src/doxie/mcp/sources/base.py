@@ -3,6 +3,7 @@
 A `ContentSource` presents a stable interface for tools to interact with
 content regardless of the underlying connector implementation.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
