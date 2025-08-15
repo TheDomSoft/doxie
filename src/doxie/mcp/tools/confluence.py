@@ -12,6 +12,8 @@ import markdown as md
 from fastmcp import FastMCP
 
 from doxie.parsers.base_parser import ParsedDocument
+from doxie.parsers.html_parser import HTMLParser
+from doxie.search.ephemeral import search_docs_ephemeral
 
 
 def _serialize_parsed_document(doc: ParsedDocument) -> Dict[str, Any]:
@@ -57,7 +59,9 @@ def register_confluence_tools(mcp: FastMCP, get_state: Callable[[], Any]) -> Non
         return allowed
 
     def _ensure_space_allowed(space_key: str, allowed: List[str]) -> None:
-        if space_key not in allowed:
+        """Raise if `space_key` not in allowed list (case-insensitive)."""
+        allowed_lc = {a.lower() for a in allowed}
+        if (space_key or "").lower() not in allowed_lc:
             raise PermissionError(
                 f"Space '{space_key}' is not allowed. Allowed spaces: {', '.join(allowed)}"
             )
@@ -79,6 +83,94 @@ def register_confluence_tools(mcp: FastMCP, get_state: Callable[[], Any]) -> Non
             _ensure_space_allowed(default_space, allowed)
         docs = await state.confluence_source.fetch(limit=limit)
         return [_serialize_parsed_document(d) for d in docs]
+
+    @mcp.tool
+    async def confluence_search(
+        query: str,
+        *,
+        spaces: Optional[List[str]] = None,
+        space: Optional[str] = None,
+        limit: Optional[int] = None,
+        k: Optional[int] = 5,
+        same_host_only: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """Search Confluence documents (no persistence) and return snippets with links.
+
+        Parameters
+        ----------
+        query: str
+            Search query string.
+        spaces: list[str] | None
+            Optional list of Confluence space keys to search.
+        space: str | None
+            Optional single space key (shorthand). Ignored if `spaces` is provided.
+        limit: int | None
+            Max documents to fetch per space before indexing.
+        k: int | None
+            Number of top results to return (default 5).
+        same_host_only: bool
+            Ignored for API-based Confluence search (for compatibility with web crawling tools).
+        """
+        state = get_state()
+        if state is None or getattr(state, "confluence_source", None) is None:
+            raise RuntimeError(
+                "Confluence source is not configured. Provide confluence settings in config/.env."
+            )
+
+        allowed = _get_allowed_spaces(state)
+        chosen_spaces: Optional[List[str]] = spaces or ([space] if space else None)
+        if not chosen_spaces:
+            # derive from config
+            cfg = getattr(state, "settings", None)
+            cfg = getattr(cfg, "confluence", None)
+            cfg_spaces_val = getattr(cfg, "spaces", None)
+            parsed: List[str] = []
+            if isinstance(cfg_spaces_val, str):
+                parsed = [p.strip() for p in cfg_spaces_val.split(",") if p and p.strip()]
+            elif isinstance(cfg_spaces_val, list):
+                parsed = [str(p).strip() for p in cfg_spaces_val if str(p).strip()]
+            chosen_spaces = parsed
+        if not chosen_spaces:
+            raise ValueError(
+                "No spaces provided. Pass `spaces`/`space` or set DOXIE_CONFLUENCE__SPACES."
+            )
+
+        # Enforce allowed (case-insensitive)
+        allowed_lc = {a.lower() for a in allowed}
+        disallowed = [s for s in chosen_spaces if (s or "").lower() not in allowed_lc]
+        if disallowed:
+            raise PermissionError(
+                f"Spaces not allowed: {', '.join(disallowed)}. Allowed: {', '.join(allowed)}"
+            )
+
+        # Fetch across spaces (limit per space), then search
+        docs = await state.confluence_source.fetch_for_spaces(chosen_spaces, limit_per_space=limit)
+
+        hits = search_docs_ephemeral(docs, query, k=int(k or 5))
+
+        # Best-effort URL construction from base_url + pageId
+        cfg = getattr(state, "settings", None)
+        cfg = getattr(cfg, "confluence", None)
+        base_url = (getattr(cfg, "base_url", None) or "").rstrip("/")
+        out: List[Dict[str, Any]] = []
+        for h in hits:
+            url = h.get("url") or ""
+            space_key = h.get("space") or ""
+            page_id = h.get("page_id") or ""
+            if not url and base_url and page_id and space_key:
+                url = f"{base_url}/wiki/spaces/{space_key}/pages/{page_id}"
+            out.append(
+                {
+                    "title": h.get("title", ""),
+                    "snippet": h.get("snippet", ""),
+                    "score": h.get("score", 0.0),
+                    "url": url,
+                    "space": space_key,
+                    "page_id": page_id,
+                    "source": "confluence",
+                }
+            )
+        return out
 
     @mcp.tool
     async def confluence_fetch_space(
@@ -104,6 +196,65 @@ def register_confluence_tools(mcp: FastMCP, get_state: Callable[[], Any]) -> Non
         return [_serialize_parsed_document(d) for d in docs]
 
     @mcp.tool
+    async def confluence_get_page(
+        page_id: str, *, expand: str = "body.storage,space"
+    ) -> Dict[str, Any]:
+        """Fetch a single Confluence page by ID and return a parsed document.
+
+        Enforces allowed spaces when the page's space can be determined.
+        """
+        state = get_state()
+        if state is None or getattr(state, "confluence_source", None) is None:
+            raise RuntimeError(
+                "Confluence source is not configured. Provide confluence settings in config/.env."
+            )
+        if not page_id:
+            raise ValueError("page_id is required")
+
+        # Fetch raw page
+        page = await state.confluence_source.get_page_by_id(page_id, expand=expand)
+
+        # Extract metadata and body
+        title: str = ""
+        space_key: str = ""
+        body_html: str = ""
+        if isinstance(page, dict):
+            title = page.get("title") or ""
+            sp = page.get("space")
+            if isinstance(sp, dict):
+                space_key = sp.get("key") or ""
+            body_html = page.get("body", {}).get("storage", {}).get("value", "")
+
+        # Enforce allowed space if available
+        allowed = _get_allowed_spaces(state)
+        if space_key:
+            _ensure_space_allowed(space_key, allowed)
+
+        # Construct page URL if base_url is configured
+        cfg = getattr(state, "settings", None)
+        cfg = getattr(cfg, "confluence", None)
+        base_url = (getattr(cfg, "base_url", None) or "").rstrip("/")
+        url = (
+            f"{base_url}/wiki/spaces/{space_key}/pages/{page_id}"
+            if (base_url and space_key)
+            else ""
+        )
+
+        # Parse HTML to our ParsedDocument shape
+        parser = HTMLParser()
+        doc = parser.parse_html_content(
+            body_html or "",
+            metadata={
+                "source": "confluence",
+                "space": space_key,
+                "page_id": page_id,
+                "title": title,
+                "url": url,
+            },
+        )
+        return _serialize_parsed_document(doc)
+
+    @mcp.tool
     async def confluence_list_spaces(limit: Optional[int] = None) -> List[Dict[str, str]]:
         """List allowed Confluence spaces (key, name) per DOXIE_CONFLUENCE__SPACES."""
         state = get_state()
@@ -113,8 +264,13 @@ def register_confluence_tools(mcp: FastMCP, get_state: Callable[[], Any]) -> Non
             )
         allowed = _get_allowed_spaces(state)
         spaces = await state.confluence_source.list_spaces(limit=limit)
-        # Filter to allowed and ensure consistent shape
-        filtered = [s for s in (spaces or []) if isinstance(s, dict) and s.get("key") in allowed]
+        # Filter to allowed (case-insensitive) and ensure consistent shape
+        allowed_lc = {a.lower() for a in allowed}
+        filtered = [
+            s
+            for s in (spaces or [])
+            if isinstance(s, dict) and ((s.get("key") or "").lower() in allowed_lc)
+        ]
         return [{"key": s.get("key", ""), "name": s.get("name", "")} for s in filtered]
 
     @mcp.tool
@@ -150,8 +306,9 @@ def register_confluence_tools(mcp: FastMCP, get_state: Callable[[], Any]) -> Non
             raise ValueError(
                 "No spaces provided. Pass `spaces` param or set DOXIE_CONFLUENCE__SPACES as a comma-separated list."
             )
-        # Enforce all requested spaces are allowed
-        disallowed = [s for s in chosen_spaces if s not in allowed]
+        # Enforce all requested spaces are allowed (case-insensitive)
+        allowed_lc = {a.lower() for a in allowed}
+        disallowed = [s for s in chosen_spaces if (s or "").lower() not in allowed_lc]
         if disallowed:
             raise PermissionError(
                 f"Spaces not allowed: {', '.join(disallowed)}. Allowed: {', '.join(allowed)}"
