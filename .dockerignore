@@ -1,0 +1,36 @@
+# VCS
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Env
+.env
+.env.*
+.venv/
+venv/
+
+# Editors/IDEs
+.vscode/
+.idea/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Caches/coverage
+.cache/
+.pytest_cache/
+.mypy_cache/
+.coverage*
+htmlcov/
+
+# Misc
+*.log
+.DS_Store
+Thumbs.db
