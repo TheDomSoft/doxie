@@ -39,6 +39,15 @@ class ConfluenceConfig(BaseModel):
     verify_ssl: bool = True
 
 
+class GitHubConfig(BaseModel):
+    """GitHub connector configuration values."""
+
+    token: Optional[str] = None  # Personal Access Token (optional for public repos)
+    api_base_url: str = "https://api.github.com"
+    web_base_url: str = "https://github.com"
+    raw_base_url: str = "https://raw.githubusercontent.com"
+
+
 class Settings(BaseSettings):
     """Top-level settings loaded from environment variables and .env only."""
 
@@ -52,6 +61,7 @@ class Settings(BaseSettings):
     app: AppConfig = AppConfig()
     database: DatabaseConfig = DatabaseConfig()
     confluence: ConfluenceConfig = ConfluenceConfig()
+    github: GitHubConfig = GitHubConfig()
 
 
 def load_settings() -> Settings:

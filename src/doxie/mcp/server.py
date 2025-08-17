@@ -15,7 +15,11 @@ from fastmcp import FastMCP
 from doxie.config import Settings, load_settings
 from doxie.connectors.confluence import ConfluenceConnector
 from doxie.mcp.sources import ConfluenceSource
-from doxie.mcp.tools import register_confluence_tools, register_web_docs_tools
+from doxie.mcp.tools import (
+    register_confluence_tools,
+    register_github_tools,
+    register_web_docs_tools,
+)
 
 
 class AppState:
@@ -70,6 +74,7 @@ def main() -> None:
     # Register tools
     register_confluence_tools(mcp, get_state=lambda: _state)
     register_web_docs_tools(mcp, get_state=lambda: _state)
+    register_github_tools(mcp, get_state=lambda: _state)
     # Choose transport based on configuration: stdio (default), http, or sse
     transport = settings.app.transport
     if transport in ("http", "sse"):
