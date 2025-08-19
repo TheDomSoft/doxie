@@ -1,5 +1,7 @@
 services:
   doxie-mcp:
+    container_name: doxie-mcp
+    image: blazejdomagala/doxie-mcp:latest
     build:
       context: .
       dockerfile: Dockerfile
