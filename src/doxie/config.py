@@ -48,6 +48,15 @@ class GitHubConfig(BaseModel):
     raw_base_url: str = "https://raw.githubusercontent.com"
 
 
+class JiraConfig(BaseModel):
+    """Jira connector configuration values."""
+
+    base_url: Optional[str] = None
+    username: Optional[str] = None  # Email for Cloud
+    token: Optional[str] = None  # API token (Cloud) or password (Server/DC)
+    verify_ssl: bool = True
+
+
 class Settings(BaseSettings):
     """Top-level settings loaded from environment variables and .env only."""
 
@@ -62,6 +71,7 @@ class Settings(BaseSettings):
     database: DatabaseConfig = DatabaseConfig()
     confluence: ConfluenceConfig = ConfluenceConfig()
     github: GitHubConfig = GitHubConfig()
+    jira: JiraConfig = JiraConfig()
 
 
 def load_settings() -> Settings:
