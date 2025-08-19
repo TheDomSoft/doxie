@@ -1,31 +1,17 @@
-version: "3.9"
 services:
-  app:
+  doxie-mcp:
     build:
       context: .
       dockerfile: Dockerfile
     env_file:
       - .env
+    environment:
+      DOXIE_APP__TRANSPORT: http
+      DOXIE_APP__HOST: 0.0.0.0
+      DOXIE_APP__PORT: 8000
     volumes:
       - ./:/app
     ports:
       - "8000:8000"
-    command: ["python", "-c", "import time; print('Doxie app container running'); time.sleep(315360000)"]
-    depends_on:
-      - db
+    command: ["doxie-mcp"]
     restart: unless-stopped
-
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: doxie
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    restart: unless-stopped
-
-volumes:
-  pgdata:

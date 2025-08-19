@@ -25,8 +25,11 @@ RUN poetry config virtualenvs.create false && \
 # Copy project files
 COPY . .
 
+# Install the project itself (creates console scripts like 'doxie-mcp')
+RUN poetry install --no-interaction --no-ansi
+
 # Expose default app port
 EXPOSE 8000
 
-# Default command: keep container alive for dev; replace with your app entrypoint.
-CMD ["python", "-c", "import time; print('Doxie container ready. Set your entrypoint.'); time.sleep(315360000)"]
+# Default command: run the Doxie MCP server (HTTP/SSE or stdio based on env)
+CMD ["doxie-mcp"]
