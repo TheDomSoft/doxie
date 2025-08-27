@@ -176,3 +176,79 @@ class JiraConnector:
                 }
             )
         return results
+
+    async def search_projects(self, query: str, max_results: int = 50) -> List[Dict[str, Any]]:
+        """Search Jira projects by name or key.
+
+        Returns a list of raw project dicts (id, key, name, etc.).
+        """
+        q = (query or "").strip()
+        params = {"query": q, "maxResults": int(max_results)}
+        async with self._client() as client:
+            resp = await client.get("/rest/api/3/project/search", params=params)
+            resp.raise_for_status()
+            data = resp.json()
+        values = []
+        if isinstance(data, dict):
+            items = data.get("values")
+            if isinstance(items, list):
+                values = items
+        # Normalize returned subset
+        results: List[Dict[str, Any]] = []
+        for p in values:
+            if not isinstance(p, dict):
+                continue
+            results.append(
+                {
+                    "id": p.get("id"),
+                    "key": p.get("key"),
+                    "name": p.get("name"),
+                    "projectTypeKey": p.get("projectTypeKey"),
+                    "self": p.get("self"),
+                }
+            )
+        return results
+
+    async def resolve_project_key(self, name_or_key: str) -> Dict[str, Any]:
+        """Resolve a Jira project key from a human-friendly name or key.
+
+        Returns a dict with:
+          - resolved: bool
+          - project: {id, key, name} if resolved, else None
+          - candidates: list of {id, key, name} if ambiguous or not found
+        """
+        query = (name_or_key or "").strip()
+        if not query:
+            return {"resolved": False, "project": None, "candidates": []}
+
+        # Primary search
+        projects = await self.search_projects(query, max_results=50)
+        lowered = query.lower()
+
+        # Try exact key match (case-insensitive)
+        for p in projects:
+            key = (p.get("key") or "").lower()
+            if key == lowered:
+                return {"resolved": True, "project": p, "candidates": []}
+
+        # Try exact name match (case-insensitive)
+        exact_name_matches = [p for p in projects if (p.get("name") or "").lower() == lowered]
+        if len(exact_name_matches) == 1:
+            return {"resolved": True, "project": exact_name_matches[0], "candidates": []}
+        if len(exact_name_matches) > 1:
+            return {"resolved": False, "project": None, "candidates": exact_name_matches}
+
+        # If only one project returned from search, assume it's the intended one
+        if len(projects) == 1:
+            return {"resolved": True, "project": projects[0], "candidates": []}
+
+        # Fallback: partial matches by containment
+        partials: List[Dict[str, Any]] = []
+        for p in projects:
+            name = (p.get("name") or "").lower()
+            key = (p.get("key") or "").lower()
+            if lowered in name or lowered in key:
+                partials.append(p)
+        if len(partials) == 1:
+            return {"resolved": True, "project": partials[0], "candidates": []}
+        return {"resolved": False, "project": None, "candidates": partials or projects}

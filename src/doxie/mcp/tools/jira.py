@@ -65,6 +65,29 @@ def register_jira_tools(mcp: FastMCP, get_state: Callable[[], Any]) -> None:
         return res
 
     @mcp.tool
+    async def jira_search_projects(query: str, max_results: int = 50) -> List[Dict[str, Any]]:
+        """Search Jira projects by name or key.
+
+        Returns a list of projects with id, key, and name. Use this if resolution is ambiguous.
+        """
+        state = get_state()
+        conn = _make_connector(state)
+        return await conn.search_projects(query, max_results=int(max_results or 50))
+
+    @mcp.tool
+    async def jira_resolve_project_key(name_or_key: str) -> Dict[str, Any]:
+        """Resolve a Jira project key from a human-readable project name or key.
+
+        Returns a dict:
+          - resolved: bool
+          - project: {id, key, name} if resolved
+          - candidates: list of candidates if ambiguous or not resolved
+        """
+        state = get_state()
+        conn = _make_connector(state)
+        return await conn.resolve_project_key(name_or_key)
+
+    @mcp.tool
     async def jira_list_transitions(issue: str) -> List[Dict[str, str]]:
         """List available transitions for an issue (id/key and name)."""
         state = get_state()
