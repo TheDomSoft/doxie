@@ -20,13 +20,6 @@ class AppConfig(BaseModel):
     host: str = "127.0.0.1"
 
 
-class DatabaseConfig(BaseModel):
-    """Database configuration values."""
-
-    # Default to docker-compose service credentials
-    url: str = "postgresql+psycopg://user:password@db:5432/doxie"
-
-
 class ConfluenceConfig(BaseModel):
     """Confluence connector configuration values."""
 
@@ -68,7 +61,6 @@ class Settings(BaseSettings):
     )
 
     app: AppConfig = AppConfig()
-    database: DatabaseConfig = DatabaseConfig()
     confluence: ConfluenceConfig = ConfluenceConfig()
     github: GitHubConfig = GitHubConfig()
     jira: JiraConfig = JiraConfig()

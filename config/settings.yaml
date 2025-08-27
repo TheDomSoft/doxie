@@ -8,8 +8,6 @@ logging:
   level: INFO
   config_file: config/logging.yaml
 
-# Database uses model default unless overridden by env vars
-
 # Confluence uses model defaults unless overridden by env vars
 confluence:
   cloud: true
